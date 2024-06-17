@@ -1,4 +1,60 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# Deploy .NET Web App to IIS on Windows Server
+
+trigger:
+  - none
+
+variables:
+  IISWebsiteName: 'azuretestproject'
+
+resources:
+  pipelines:
+    - pipeline: 'buildPipeline'
+      project: 'AzureTestProject'
+      source: 'Build pipeline'
+      branch: 'main'
+
+pool:
+  vmImage: 'windows-latest'
+
+stages:
+  - stage: Deploy
+    displayName: 'Deploy website'
+    
+    jobs:
+    - deployment: DeployWebsite
+      displayName: 'Deploy website'
+      environment: 'Windows Server'
+      
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: DownloadBuildArtifacts@0
+              displayName: 'Download Build Artifacts'
+              inputs:
+                buildType: 'current'
+                downloadType: 'single'
+                artifactName: 'AzureTestProject'
+                downloadPath: '$(System.ArtifactsDirectory)'
+                        
+            - task: IISWebAppManagementOnMachineGroup@0
+              displayName: 'Stop IIS Website'
+              inputs:
+                IISDeploymentType: 'IISWebsite'
+                ActionIISWebsite: 'StopWebsite'
+                StartStopWebsiteName: '$(IISWebsiteName)'
+                        
+            - task: IISWebAppDeploymentOnMachineGroup@0
+              displayName: 'Deploy to IIS Website'
+              inputs:
+                WebSiteName: '$(IISWebsiteName)'
+                Package: '$(System.ArtifactsDirectory)\AzureTestProject\RoundTheCode.AzureTestProject.zip'
+                TakeAppOfflineFlag: true
+                XmlVariableSubstitution: true
+            
+            - task: IISWebAppManagementOnMachineGroup@0
+              displayName: 'Start IIS Website'
+              inputs:
+                IISDeploymentType: 'IISWebsite'
+                ActionIISWebsite: 'StartWebsite'
+                StartStopWebsiteName: '$(IISWebsiteName)'
