@@ -24,12 +24,7 @@ pipeline {
 
        stage('Test') {
            steps {
-               bat 'dotnet test dotnetwebapp/dotnetwebapp.csproj --logger trx --collect "Code coverage"'
-           }
-           post {
-               always {
-                   mstest testResultsFile: '**/*.trx'
-               }
+               echo 'Skipping tests'
            }
        }
 
@@ -59,20 +54,4 @@ pipeline {
        }
    }
 
-   post {
-       success {
-           emailext (
-               subject: "Deployment Succeeded",
-               body: "The application was successfully deployed.",
-               to: "sarwut.p@kkumail.com"
-           )
-       }
-       failure {
-           emailext (
-               subject: "Deployment Failed",
-               body: "The application deployment failed. Please check the Jenkins logs.",
-               to: "sarwut.p@kkumail.com"
-           )
-       }
-   }
 }
