@@ -12,19 +12,19 @@ pipeline {
 
        stage('Restore') {
            steps {
-               bat 'dotnet restore'
+               bat 'dotnet restore dotnetwebapp/dotnetwebapp.csproj'
            }
        }
 
        stage('Build') {
            steps {
-               bat 'dotnet build --configuration Release'
+               bat 'dotnet build dotnetwebapp/dotnetwebapp.csproj --configuration Release'
            }
        }
 
        stage('Test') {
            steps {
-               bat 'dotnet test --logger trx --collect "Code coverage"'
+               bat 'dotnet test dotnetwebapp/dotnetwebapp.csproj --logger trx --collect "Code coverage"'
            }
            post {
                always {
@@ -35,7 +35,7 @@ pipeline {
 
        stage('Publish') {
            steps {
-               bat 'dotnet publish --configuration Release --output publish'
+               bat 'dotnet publish dotnetwebapp/dotnetwebapp.csproj --configuration Release --output publish'
            }
        }
 
