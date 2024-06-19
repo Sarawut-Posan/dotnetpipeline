@@ -45,13 +45,18 @@ pipeline {
                     def siteName = 'azuretestproject'
                     def localPath = "C:\\inetpub\\wwwroot\\${siteName}\\"
 
-                    // Commands to stop and manage IIS
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd stop apppool \"${appPool}\""
-                    echo 'Application pool stopped'
+                    // Check if the app pool is running and stop it if it is
+                    bat script: "C:\\Windows\\System32\\inetsrv\\appcmd list apppool \"${appPool}\" | find \"State: Started\" && C:\\Windows\\System32\\inetsrv\\appcmd stop apppool \"${appPool}\" || echo App pool already stopped", returnStatus: true
+
+                    // Delete existing site
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd delete site \"${siteName}\""
                     echo 'Site deleted'
+
+                    // Add new site
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd add site /name:\"${siteName}\" /physicalPath:\"${localPath}\" /bindings:http/*:80:"
                     echo 'New site added'
+
+                    // Set application to use the new app pool
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd set app \"${siteName}/\" /applicationPool:\"${appPool}\""
                     echo 'Application set to use new app pool'
 
@@ -59,9 +64,9 @@ pipeline {
                     bat "xcopy /Y /I \"publish\" \"${localPath}\""
                     echo 'Files copied to the new site directory'
 
-                    // Restarting the application pool
+                    // Start the application pool
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd start apppool \"${appPool}\""
-                    echo 'Application pool restarted'
+                    echo 'Application pool started'
                 }
             }
         }
