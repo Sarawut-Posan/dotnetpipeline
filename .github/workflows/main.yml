@@ -11,4 +11,4 @@ jobs:
     steps:
     - name: Trigger Jenkins Job
       run: |
-        curl -X POST "${{ secrets.JENKINS_URL }}/job/dotnetcicd/build?token=${{ secrets.JENKINS_TOKEN }}"
+        curl -X POST "http://localhost:8080/job/dotnetcicd/build?token=ghdsajxppweipe889932pa3sax"
