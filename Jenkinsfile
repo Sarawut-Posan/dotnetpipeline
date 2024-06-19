@@ -42,7 +42,7 @@ pipeline {
             steps {
                 script {
                     def appPool = 'coreapp'
-                    def siteName = 'azuretestproject'
+                    def siteName = 'Default Web Site'
                     def localPath = "C:\\inetpub\\wwwroot\\${siteName}\\"
 
                     // Check if the app pool is running and stop it if it is
