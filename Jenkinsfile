@@ -42,7 +42,7 @@ pipeline {
             steps {
                 script {
                     def appPool = 'coreapp'
-                    def siteName = 'Default Web Site'
+                    def siteName = 'AzureTestProject'
                     def localPath = "C:\\inetpub\\wwwroot\\${siteName}\\"
 
                     // Ensure the application pool is stopped before making changes
