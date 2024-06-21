@@ -50,18 +50,23 @@ pipeline {
                     
                     // Ensure the application pool exists and is in the correct state
                     bat """
+                    @echo off
                     C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" > nul 2>&1
                     if %errorlevel% neq 0 (
                         C:\\Windows\\System32\\inetsrv\\appcmd add apppool /name:"${appPool}"
+                        if %errorlevel% neq 0 (
+                            echo Failed to create application pool
+                            exit /b %errorlevel%
+                        )
                         echo Application pool created
                     ) else (
                         echo Application pool already exists
                     )
-                    if %errorlevel% neq 0 exit /b %errorlevel%
                     """
                     
                     // Check application pool state and stop if running
                     bat """
+                    @echo off
                     C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" /text:state | findstr "Started" > nul
                     if %errorlevel% equ 0 (
                         C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}" /commit:apphost
@@ -77,6 +82,7 @@ pipeline {
                     
                     // Remove existing site if it exists
                     bat """
+                    @echo off
                     C:\\Windows\\System32\\inetsrv\\appcmd list site "${siteName}" > nul 2>&1
                     if %errorlevel% equ 0 (
                         C:\\Windows\\System32\\inetsrv\\appcmd delete site "${siteName}"
@@ -92,6 +98,7 @@ pipeline {
                     
                     // Ensure the target directory exists and is empty
                     bat """
+                    @echo off
                     if exist "${localPath}" (
                         rmdir /S /Q "${localPath}"
                         if %errorlevel% neq 0 (
@@ -104,51 +111,57 @@ pipeline {
                         echo Failed to create directory
                         exit /b %errorlevel%
                     )
+                    echo Target directory prepared
                     """
                     
                     // Copy files to the server
-                    echo "Deploying files to '${localPath}'..."
                     bat """
+                    @echo off
+                    echo Deploying files to '${localPath}'...
                     xcopy /Y /E /I "publish\\*" "${localPath}"
                     if %errorlevel% neq 0 (
                         echo Failed to copy files
                         exit /b %errorlevel%
                     )
+                    echo Files copied to the new site directory
                     """
-                    echo 'Files copied to the new site directory'
                     
                     // Create the site with the specified port
                     bat """
+                    @echo off
                     C:\\Windows\\System32\\inetsrv\\appcmd add site /name:"${siteName}" /physicalPath:"${localPath}" /bindings:http/*:${port}:
                     if %errorlevel% neq 0 (
                         echo Failed to create site
                         exit /b %errorlevel%
                     )
+                    echo New site added on port ${port}
                     """
-                    echo "New site added on port ${port}"
                     
                     // Set the application pool for the site
                     bat """
+                    @echo off
                     C:\\Windows\\System32\\inetsrv\\appcmd set app "${siteName}/" /applicationPool:"${appPool}"
                     if %errorlevel% neq 0 (
                         echo Failed to set application pool for the site
                         exit /b %errorlevel%
                     )
+                    echo Application set to use new app pool
                     """
-                    echo 'Application set to use new app pool'
                     
                     // Start the application pool
                     bat """
+                    @echo off
                     C:\\Windows\\System32\\inetsrv\\appcmd start apppool "${appPool}"
                     if %errorlevel% neq 0 (
                         echo Failed to start application pool
                         exit /b %errorlevel%
                     )
+                    echo Application pool started successfully
                     """
-                    echo 'Application pool started successfully'
                     
                     // Ensure web.config is in the correct location
                     bat """
+                    @echo off
                     if exist "${localPath}\\web.config" (
                         echo web.config found in the correct location
                     ) else (
