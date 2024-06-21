@@ -1,14 +1,21 @@
 name: Trigger Jenkins Job
-
 on:
   push:
     branches:
       - main
-
 jobs:
   trigger_jenkins:
     runs-on: ubuntu-latest
     steps:
     - name: Trigger Jenkins Job
       run: |
-        curl -X POST "http://20.2.250.65:8080/job/dotnetcicd/build?token=ghdsajxppweipe889932pa3sax"
+        curl -X POST "http://20.2.250.65:8080/job/dotnetcicd/build?token=ghdsajxppweipe889932pa3sax" || echo "Failed to trigger Jenkins job"
+    - name: Check Jenkins Response
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" "http://20.2.250.65:8080")
+        if [ "$response" = "200" ]; then
+          echo "Jenkins is accessible"
+        else
+          echo "Failed to access Jenkins. HTTP response code: $response"
+          exit 1
+        fi
