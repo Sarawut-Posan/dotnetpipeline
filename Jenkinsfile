@@ -57,8 +57,17 @@ pipeline {
                     ) else (
                         echo Application pool already exists
                     )
-                    C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}" /commit:apphost
-                    echo Application pool stopped
+                    """
+                    
+                    // Check application pool state and stop if running
+                    bat """
+                    C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" /text:state | findstr "Started" > nul
+                    if %errorlevel% equ 0 (
+                        C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}" /commit:apphost
+                        echo Application pool stopped
+                    ) else (
+                        echo Application pool is already stopped
+                    )
                     """
                     
                     // Remove existing site if it exists
@@ -96,8 +105,15 @@ pipeline {
                     echo 'Application set to use new app pool'
                     
                     // Start the application pool
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd start apppool \"${appPool}\""
-                    echo 'Application pool started'
+                    bat """
+                    C:\\Windows\\System32\\inetsrv\\appcmd start apppool "${appPool}"
+                    if %errorlevel% neq 0 (
+                        echo Failed to start application pool
+                        exit /b 1
+                    ) else (
+                        echo Application pool started successfully
+                    )
+                    """
                     
                     // Ensure web.config is in the correct location
                     bat """
@@ -105,7 +121,7 @@ pipeline {
                         echo web.config found in the correct location
                     ) else (
                         echo ERROR: web.config not found in ${localPath}
-                        exit 1
+                        exit /b 1
                     )
                     """
                 }
