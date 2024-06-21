@@ -8,11 +8,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Trigger Jenkins Job
+      env:
+        JENKINS_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
       run: |
-        curl -X POST "http://20.2.250.65:8080/job/dotnetcicd/build?token=ghdsajxppweipe889932pa3sax" || echo "Failed to trigger Jenkins job"
+        curl -X POST "http://20.2.250.65:8080/job/dotnetcicd/build?token=ghdsajxppweipe889932pa3sax" \
+             --user "sarawutadmin:$JENKINS_TOKEN" || echo "Failed to trigger Jenkins job"
     - name: Check Jenkins Response
+      env:
+        JENKINS_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
       run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" "http://20.2.250.65:8080")
+        response=$(curl -s -o /dev/null -w "%{http_code}" \
+                   --user "sarawutadmin:$JENKINS_TOKEN" \
+                   "http://20.2.250.65:8080")
         if [ "$response" = "200" ]; then
           echo "Jenkins is accessible"
         else
