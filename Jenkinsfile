@@ -48,9 +48,10 @@ pipeline {
                         error "Port 8080 is used by Jenkins. Please choose a different port."
                     }
                     
-                    // Ensure the application pool exists and is in the correct state
+                    // Ensure the application pool exists
                     bat """
                     @echo off
+                    echo Checking application pool "${appPool}"...
                     C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" > nul 2>&1
                     if %errorlevel% neq 0 (
                         echo Creating application pool "${appPool}"...
@@ -59,45 +60,8 @@ pipeline {
                             echo Failed to create application pool
                             exit /b %errorlevel%
                         )
-                        echo Application pool created successfully
                     ) else (
                         echo Application pool "${appPool}" already exists
-                    )
-                    """
-                    
-                    // Check application pool state and stop if running
-                    bat """
-                    @echo off
-                    echo Checking application pool state...
-                    C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" /text:state | findstr "Started" > nul
-                    if %errorlevel% equ 0 (
-                        echo Stopping application pool "${appPool}"...
-                        C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}"
-                        if %errorlevel% neq 0 (
-                            echo Failed to stop application pool
-                            exit /b %errorlevel%
-                        )
-                        echo Application pool stopped successfully
-                    ) else (
-                        echo Application pool is already stopped
-                    )
-                    """
-                    
-                    // Remove existing site if it exists
-                    bat """
-                    @echo off
-                    echo Checking for existing site "${siteName}"...
-                    C:\\Windows\\System32\\inetsrv\\appcmd list site "${siteName}" > nul 2>&1
-                    if %errorlevel% equ 0 (
-                        echo Deleting existing site "${siteName}"...
-                        C:\\Windows\\System32\\inetsrv\\appcmd delete site "${siteName}"
-                        if %errorlevel% neq 0 (
-                            echo Failed to delete existing site
-                            exit /b %errorlevel%
-                        )
-                        echo Existing site deleted successfully
-                    ) else (
-                        echo Site does not exist, no need to delete
                     )
                     """
                     
@@ -119,19 +83,34 @@ pipeline {
                         echo Failed to create directory
                         exit /b %errorlevel%
                     )
-                    echo Target directory prepared successfully
                     """
                     
                     // Copy files to the server
                     bat """
                     @echo off
-                    echo Deploying files to '${localPath}'...
+                    echo Copying files to '${localPath}'...
                     xcopy /Y /E /I "publish\\*" "${localPath}"
                     if %errorlevel% neq 0 (
                         echo Failed to copy files
                         exit /b %errorlevel%
                     )
-                    echo Files copied to the new site directory successfully
+                    """
+                    
+                    // Remove existing site if it exists
+                    bat """
+                    @echo off
+                    echo Checking for existing site "${siteName}"...
+                    C:\\Windows\\System32\\inetsrv\\appcmd list site "${siteName}" > nul 2>&1
+                    if %errorlevel% equ 0 (
+                        echo Deleting existing site "${siteName}"...
+                        C:\\Windows\\System32\\inetsrv\\appcmd delete site "${siteName}"
+                        if %errorlevel% neq 0 (
+                            echo Failed to delete existing site
+                            exit /b %errorlevel%
+                        )
+                    ) else (
+                        echo Site does not exist, proceeding with creation
+                    )
                     """
                     
                     // Create the site with the specified port
@@ -141,9 +120,9 @@ pipeline {
                     C:\\Windows\\System32\\inetsrv\\appcmd add site /name:"${siteName}" /physicalPath:"${localPath}" /bindings:http/*:${port}:
                     if %errorlevel% neq 0 (
                         echo Failed to create site
+                        C:\\Windows\\System32\\inetsrv\\appcmd list site
                         exit /b %errorlevel%
                     )
-                    echo New site added successfully
                     """
                     
                     // Set the application pool for the site
@@ -155,7 +134,6 @@ pipeline {
                         echo Failed to set application pool for the site
                         exit /b %errorlevel%
                     )
-                    echo Application pool set successfully
                     """
                     
                     // Start the application pool
@@ -166,19 +144,6 @@ pipeline {
                     if %errorlevel% neq 0 (
                         echo Failed to start application pool
                         exit /b %errorlevel%
-                    )
-                    echo Application pool started successfully
-                    """
-                    
-                    // Ensure web.config is in the correct location
-                    bat """
-                    @echo off
-                    echo Checking for web.config...
-                    if exist "${localPath}\\web.config" (
-                        echo web.config found in the correct location
-                    ) else (
-                        echo ERROR: web.config not found in ${localPath}
-                        exit /b 1
                     )
                     """
                     
