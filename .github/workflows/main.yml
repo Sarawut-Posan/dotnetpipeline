@@ -16,6 +16,7 @@ jobs:
         JENKINS_URL: http://20.2.250.65:8080
         JOB_NAME: dotnetcicd
         BUILD_TOKEN: ghdsajxppweipe889932pa3sax
+        PORT: 5000
       run: |
         # Function to check if Jenkins is accessible
         check_jenkins_accessibility() {
@@ -47,32 +48,15 @@ jobs:
           echo "Failed to obtain crumb: $CRUMB_RESPONSE"
           exit 1
         fi
-        
-        # Get the form structure
-        echo "Getting form structure..."
-        FORM_STRUCTURE=$(curl -s -u "${JENKINS_USER}:${JENKINS_TOKEN}" "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}")
-        echo "Form structure received"
-        
-        # Extract form data
-        echo "Extracting form data..."
-        FORM_DATA=$(echo "$FORM_STRUCTURE" | grep -oP '(?<=<form)[^>]*action="[^"]*"')
-        ACTION_URL=$(echo "$FORM_DATA" | grep -oP '(?<=action=")[^"]*')
-        echo "Action URL: $ACTION_URL"
-        
-        if [ -z "$ACTION_URL" ]; then
-          echo "Failed to extract Action URL. Using default URL."
-          ACTION_URL="/job/${JOB_NAME}/build"
-        fi
 
-        # Trigger Jenkins job with form submission simulation
+        # Trigger Jenkins job with parameters
         echo "Triggering Jenkins job..."
         RESPONSE=$(curl -s -o response.txt -w "%{http_code}" \
-                   -X POST "${JENKINS_URL}${ACTION_URL}" \
+                   -X POST "${JENKINS_URL}/job/${JOB_NAME}/buildWithParameters?PORT=${PORT}" \
                    -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
                    -H "$CRUMB" \
                    -H "Content-Type: application/x-www-form-urlencoded" \
-                   --data-urlencode "json={}" \
-                   --data-urlencode "Submit=Build")
+                   --data-urlencode "token=${BUILD_TOKEN}")
         
         echo "Response code: $RESPONSE"
         cat response.txt
@@ -81,23 +65,7 @@ jobs:
           echo "Jenkins job triggered successfully"
         else
           echo "Failed to trigger Jenkins job. HTTP response code: $RESPONSE"
-          
-          # Try alternative method
-          echo "Trying alternative method to trigger job..."
-          ALT_RESPONSE=$(curl -s -o alt_response.txt -w "%{http_code}" \
-                         -X POST "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}" \
-                         -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
-                         -H "$CRUMB")
-          
-          echo "Alternative method response code: $ALT_RESPONSE"
-          cat alt_response.txt
-          
-          if [ "$ALT_RESPONSE" = "201" ] || [ "$ALT_RESPONSE" = "302" ]; then
-            echo "Jenkins job triggered successfully using alternative method"
-          else
-            echo "Failed to trigger Jenkins job using alternative method. HTTP response code: $ALT_RESPONSE"
-            exit 1
-          fi
+          exit 1
         fi
 
     - name: Check Jenkins Accessibility
