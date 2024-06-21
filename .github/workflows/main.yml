@@ -23,32 +23,37 @@ jobs:
         
         if [[ $CRUMB_RESPONSE == *":"* ]]; then
           CRUMB=$CRUMB_RESPONSE
-          echo "Crumb obtained successfully"
+          echo "Crumb obtained successfully: $CRUMB"
         else
           echo "Failed to obtain crumb: $CRUMB_RESPONSE"
           exit 1
         fi
         
+        # Get the form structure
+        FORM_STRUCTURE=$(curl -s -u "${JENKINS_USER}:${JENKINS_TOKEN}" "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}")
+        echo "Form structure received"
+        
+        # Extract form data
+        FORM_DATA=$(echo "$FORM_STRUCTURE" | grep -oP '(?<=<form)[^>]*action="[^"]*"')
+        ACTION_URL=$(echo "$FORM_DATA" | grep -oP '(?<=action=")[^"]*')
+        echo "Action URL: $ACTION_URL"
+        
         # Trigger Jenkins job with form submission simulation
-        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-                   -X POST "${JENKINS_URL}/job/${JOB_NAME}/build" \
+        RESPONSE=$(curl -s -o response.txt -w "%{http_code}" \
+                   -X POST "${JENKINS_URL}${ACTION_URL}" \
                    -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
                    -H "$CRUMB" \
                    -H "Content-Type: application/x-www-form-urlencoded" \
-                   --data-urlencode "token=${BUILD_TOKEN}" \
+                   --data-urlencode "json={}" \
                    --data-urlencode "Submit=Build")
+        
+        echo "Response code: $RESPONSE"
+        cat response.txt
         
         if [ "$RESPONSE" = "201" ] || [ "$RESPONSE" = "302" ]; then
           echo "Jenkins job triggered successfully"
         else
           echo "Failed to trigger Jenkins job. HTTP response code: $RESPONSE"
-          # Add more debugging information
-          curl -v -X POST "${JENKINS_URL}/job/${JOB_NAME}/build" \
-               -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
-               -H "$CRUMB" \
-               -H "Content-Type: application/x-www-form-urlencoded" \
-               --data-urlencode "token=${BUILD_TOKEN}" \
-               --data-urlencode "Submit=Build"
           exit 1
         fi
 
