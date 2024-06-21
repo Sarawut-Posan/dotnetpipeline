@@ -2,7 +2,9 @@ pipeline {
     agent {
         label 'built-in'
     }
-
+    parameters {
+        string(name: 'PORT', defaultValue: '5000', description: 'Port number for the website (avoid 8080 as it is used by Jenkins)')
+    }
     stages {
         stage('Checkout') {
             steps {
@@ -10,65 +12,75 @@ pipeline {
                 echo 'Code checked out from SCM'
             }
         }
-
         stage('Restore') {
             steps {
                 bat 'dotnet restore dotnetwebapp/dotnetwebapp.csproj'
                 echo 'Project dependencies restored'
             }
         }
-
         stage('Build') {
             steps {
                 bat 'dotnet build dotnetwebapp/dotnetwebapp.csproj --configuration Release'
                 echo 'Project built in Release configuration'
             }
         }
-
         stage('Test') {
             steps {
                 echo 'Skipping tests'
             }
         }
-
         stage('Publish') {
             steps {
                 bat 'dotnet publish dotnetwebapp/dotnetwebapp.csproj --configuration Release --output publish'
                 echo 'Project published to the publish directory'
             }
         }
-
         stage('Deploy') {
             steps {
                 script {
                     def appPool = 'coreapp'
                     def siteName = 'AzureTestProject'
                     def localPath = "C:\\inetpub\\wwwroot\\${siteName}\\"
-
-                    // Ensure the application pool is stopped before making changes
-                    echo "Ensuring the application pool '${appPool}' is stopped..."
-                    def appPoolStatus = bat(script: "C:\\Windows\\System32\\inetsrv\\appcmd list apppool \"${appPool}\" | findstr \"State: Started\"", returnStdout: true).trim()
-                    if (appPoolStatus.contains("State: Started")) {
-                        bat "C:\\Windows\\System32\\inetsrv\\appcmd stop apppool \"${appPool}\""
-                        echo 'Application pool stopped'
-                    } else {
-                        echo 'Application pool already stopped'
+                    def port = params.PORT
+                    
+                    // Validate port number
+                    if (port == '8080') {
+                        error "Port 8080 is used by Jenkins. Please choose a different port."
                     }
-
-                    // Reconfigure the IIS site
-                    echo "Reconfiguring the site '${siteName}'..."
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd delete site \"${siteName}\""
-                    echo 'Site deleted'
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd add site /name:\"${siteName}\" /physicalPath:\"${localPath}\" /bindings:http/*:80:"
-                    echo 'New site added'
+                    
+                    // Ensure the application pool exists
+                    bat "C:\\Windows\\System32\\inetsrv\\appcmd list apppool \"${appPool}\" || C:\\Windows\\System32\\inetsrv\\appcmd add apppool /name:\"${appPool}\""
+                    
+                    // Stop the application pool if it's running
+                    bat "C:\\Windows\\System32\\inetsrv\\appcmd stop apppool \"${appPool}\" || echo Application pool already stopped"
+                    
+                    // Check if the site exists before trying to delete it
+                    bat """
+                    C:\\Windows\\System32\\inetsrv\\appcmd list site \"${siteName}\" > nul 2>&1
+                    if %errorlevel% equ 0 (
+                        C:\\Windows\\System32\\inetsrv\\appcmd delete site \"${siteName}\"
+                        echo Site deleted
+                    ) else (
+                        echo Site does not exist, skipping deletion
+                    )
+                    """
+                    
+                    // Create the site with the specified port
+                    bat "C:\\Windows\\System32\\inetsrv\\appcmd add site /name:\"${siteName}\" /physicalPath:\"${localPath}\" /bindings:http/*:${port}:"
+                    echo "New site added on port ${port}"
+                    
+                    // Set the application pool for the site
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd set app \"${siteName}/\" /applicationPool:\"${appPool}\""
                     echo 'Application set to use new app pool'
-
+                    
+                    // Ensure the target directory exists
+                    bat "if not exist \"${localPath}\" mkdir \"${localPath}\""
+                    
                     // Copy files to the server
                     echo "Deploying files to '${localPath}'..."
-                    bat "xcopy /Y /I \"publish\" \"${localPath}\""
+                    bat "xcopy /Y /E /I \"publish\\*\" \"${localPath}\""
                     echo 'Files copied to the new site directory'
-
+                    
                     // Start the application pool
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd start apppool \"${appPool}\""
                     echo 'Application pool started'
