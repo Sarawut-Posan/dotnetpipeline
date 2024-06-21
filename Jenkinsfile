@@ -48,17 +48,24 @@ pipeline {
                         error "Port 8080 is used by Jenkins. Please choose a different port."
                     }
                     
-                    // Ensure the application pool exists
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd list apppool \"${appPool}\" || C:\\Windows\\System32\\inetsrv\\appcmd add apppool /name:\"${appPool}\""
-                    
-                    // Stop the application pool if it's running
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd stop apppool \"${appPool}\" || echo Application pool already stopped"
+                    // Ensure the application pool exists and is in the correct state
+                    bat """
+                    C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" > nul 2>&1
+                    if %errorlevel% neq 0 (
+                        C:\\Windows\\System32\\inetsrv\\appcmd add apppool /name:"${appPool}"
+                        echo Application pool created
+                    ) else (
+                        echo Application pool already exists
+                    )
+                    C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}" /commit:apphost
+                    echo Application pool stopped
+                    """
                     
                     // Check if the site exists before trying to delete it
                     bat """
-                    C:\\Windows\\System32\\inetsrv\\appcmd list site \"${siteName}\" > nul 2>&1
+                    C:\\Windows\\System32\\inetsrv\\appcmd list site "${siteName}" > nul 2>&1
                     if %errorlevel% equ 0 (
-                        C:\\Windows\\System32\\inetsrv\\appcmd delete site \"${siteName}\"
+                        C:\\Windows\\System32\\inetsrv\\appcmd delete site "${siteName}"
                         echo Site deleted
                     ) else (
                         echo Site does not exist, skipping deletion
