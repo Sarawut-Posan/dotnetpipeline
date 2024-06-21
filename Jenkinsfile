@@ -57,23 +57,18 @@ pipeline {
                     ) else (
                         echo Application pool already exists
                     )
-                    C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" /text:state | findstr "Started" > nul
-                    if %errorlevel% equ 0 (
-                        C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}"
-                        echo Application pool stopped
-                    ) else (
-                        echo Application pool is already stopped
-                    )
+                    C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}" /commit:apphost
+                    echo Application pool stopped
                     """
                     
-                    // Check if the site exists before trying to delete it
+                    // Remove existing site if it exists
                     bat """
                     C:\\Windows\\System32\\inetsrv\\appcmd list site "${siteName}" > nul 2>&1
                     if %errorlevel% equ 0 (
                         C:\\Windows\\System32\\inetsrv\\appcmd delete site "${siteName}"
-                        echo Site deleted
+                        echo Existing site deleted
                     ) else (
-                        echo Site does not exist, skipping deletion
+                        echo Site does not exist, no need to delete
                     )
                     """
                     
@@ -90,12 +85,11 @@ pipeline {
                     bat "xcopy /Y /E /I \"publish\\*\" \"${localPath}\""
                     echo 'Files copied to the new site directory'
                     
-                    // Create the site with the specified port and make sure bindings are correct
+                    // Create the site with the specified port
                     bat """
                     C:\\Windows\\System32\\inetsrv\\appcmd add site /name:"${siteName}" /physicalPath:"${localPath}" /bindings:http/*:${port}:
-                    C:\\Windows\\System32\\inetsrv\\appcmd set site /site.name:"${siteName}" /+bindings.[protocol='http',bindingInformation='*:${port}:']
                     """
-                    echo "New site added on port ${port} with correct bindings"
+                    echo "New site added on port ${port}"
                     
                     // Set the application pool for the site
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd set app \"${siteName}/\" /applicationPool:\"${appPool}\""
