@@ -38,9 +38,9 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    def appPool = 'AzureTestProject'
+                    def appPool = 'coreapp'
                     def siteName = 'AzureTestProject'
-                    def localPath = "C:\\inetpub\\wwwroot\\${siteName}\\"
+                    def localPath = "C:\\inetpub\\wwwroot\\${siteName}"
                     def port = params.PORT
                     
                     // Validate port number
@@ -77,25 +77,43 @@ pipeline {
                     )
                     """
                     
-                    // Create the site with the specified port
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd add site /name:\"${siteName}\" /physicalPath:\"${localPath}\" /bindings:http/*:${port}:"
-                    echo "New site added on port ${port}"
-                    
-                    // Set the application pool for the site
-                    bat "C:\\Windows\\System32\\inetsrv\\appcmd set app \"${siteName}/\" /applicationPool:\"${appPool}\""
-                    echo 'Application set to use new app pool'
-                    
-                    // Ensure the target directory exists
-                    bat "if not exist \"${localPath}\" mkdir \"${localPath}\""
+                    // Ensure the target directory exists and is empty
+                    bat """
+                    if exist "${localPath}" (
+                        rmdir /S /Q "${localPath}"
+                    )
+                    mkdir "${localPath}"
+                    """
                     
                     // Copy files to the server
                     echo "Deploying files to '${localPath}'..."
                     bat "xcopy /Y /E /I \"publish\\*\" \"${localPath}\""
                     echo 'Files copied to the new site directory'
                     
+                    // Create the site with the specified port and make sure bindings are correct
+                    bat """
+                    C:\\Windows\\System32\\inetsrv\\appcmd add site /name:"${siteName}" /physicalPath:"${localPath}" /bindings:http/*:${port}:
+                    C:\\Windows\\System32\\inetsrv\\appcmd set site /site.name:"${siteName}" /+bindings.[protocol='http',bindingInformation='*:${port}:']
+                    """
+                    echo "New site added on port ${port} with correct bindings"
+                    
+                    // Set the application pool for the site
+                    bat "C:\\Windows\\System32\\inetsrv\\appcmd set app \"${siteName}/\" /applicationPool:\"${appPool}\""
+                    echo 'Application set to use new app pool'
+                    
                     // Start the application pool
                     bat "C:\\Windows\\System32\\inetsrv\\appcmd start apppool \"${appPool}\""
                     echo 'Application pool started'
+                    
+                    // Ensure web.config is in the correct location
+                    bat """
+                    if exist "${localPath}\\web.config" (
+                        echo web.config found in the correct location
+                    ) else (
+                        echo ERROR: web.config not found in ${localPath}
+                        exit 1
+                    )
+                    """
                 }
             }
         }
