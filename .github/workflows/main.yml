@@ -1,8 +1,10 @@
 name: Trigger Jenkins Job
+
 on:
   push:
     branches:
       - main
+
 jobs:
   trigger_jenkins:
     runs-on: ubuntu-latest
@@ -10,19 +12,38 @@ jobs:
     - name: Trigger Jenkins Job
       env:
         JENKINS_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+        JENKINS_USER: sarawutadmin
+        JENKINS_URL: http://20.2.250.65:8080
+        JOB_NAME: dotnetcicd
+        BUILD_TOKEN: ghdsajxppweipe889932pa3sax
       run: |
-        curl -X POST "http://20.2.250.65:8080/job/dotnetcicd/build?token=ghdsajxppweipe889932pa3sax" \
-             --user "sarawutadmin:$JENKINS_TOKEN" || echo "Failed to trigger Jenkins job"
-    - name: Check Jenkins Response
+        # Get Jenkins crumb for CSRF protection
+        CRUMB=$(curl -s "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)" -u "${JENKINS_USER}:${JENKINS_TOKEN}")
+        
+        # Trigger Jenkins job
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}" \
+             -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+             -H "$CRUMB")
+        
+        if [ "$RESPONSE" = "201" ]; then
+          echo "Jenkins job triggered successfully"
+        else
+          echo "Failed to trigger Jenkins job. HTTP response code: $RESPONSE"
+          exit 1
+        fi
+
+    - name: Check Jenkins Accessibility
       env:
         JENKINS_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+        JENKINS_USER: sarawutadmin
+        JENKINS_URL: http://20.2.250.65:8080
       run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" \
-                   --user "sarawutadmin:$JENKINS_TOKEN" \
-                   "http://20.2.250.65:8080")
-        if [ "$response" = "200" ]; then
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+                   -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+                   "${JENKINS_URL}")
+        if [ "$RESPONSE" = "200" ]; then
           echo "Jenkins is accessible"
         else
-          echo "Failed to access Jenkins. HTTP response code: $response"
+          echo "Failed to access Jenkins. HTTP response code: $RESPONSE"
           exit 1
         fi
