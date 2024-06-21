@@ -18,17 +18,31 @@ jobs:
         BUILD_TOKEN: ghdsajxppweipe889932pa3sax
       run: |
         # Get Jenkins crumb for CSRF protection
-        CRUMB=$(curl -s "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)" -u "${JENKINS_USER}:${JENKINS_TOKEN}")
+        CRUMB_RESPONSE=$(curl -s -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+                         "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)")
+        
+        if [[ $CRUMB_RESPONSE == *":"* ]]; then
+          CRUMB=$CRUMB_RESPONSE
+          echo "Crumb obtained successfully"
+        else
+          echo "Failed to obtain crumb: $CRUMB_RESPONSE"
+          exit 1
+        fi
         
         # Trigger Jenkins job
-        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}" \
-             -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
-             -H "$CRUMB")
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+                   -X POST "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}" \
+                   -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+                   -H "$CRUMB")
         
         if [ "$RESPONSE" = "201" ]; then
           echo "Jenkins job triggered successfully"
         else
           echo "Failed to trigger Jenkins job. HTTP response code: $RESPONSE"
+          # Add more debugging information
+          curl -v -X POST "${JENKINS_URL}/job/${JOB_NAME}/build?token=${BUILD_TOKEN}" \
+               -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+               -H "$CRUMB"
           exit 1
         fi
 
