@@ -57,8 +57,13 @@ pipeline {
                     ) else (
                         echo Application pool already exists
                     )
-                    C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}" /commit:apphost
-                    echo Application pool stopped
+                    C:\\Windows\\System32\\inetsrv\\appcmd list apppool "${appPool}" /text:state | findstr "Started" > nul
+                    if %errorlevel% equ 0 (
+                        C:\\Windows\\System32\\inetsrv\\appcmd stop apppool "${appPool}"
+                        echo Application pool stopped
+                    ) else (
+                        echo Application pool is already stopped
+                    )
                     """
                     
                     // Check if the site exists before trying to delete it
