@@ -38,7 +38,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    def appPool = 'coreapp'
+                    def appPool = 'AzureTestProject'
                     def siteName = 'AzureTestProject'
                     def localPath = "C:\\inetpub\\wwwroot\\${siteName}"
                     def port = params.PORT
